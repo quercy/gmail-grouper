@@ -132,7 +132,7 @@ func listAllMessages(srv *gmail.Service) []*gmail.Message {
 	var token string
 	spin.Start()
 	for {
-		messageList, err := srv.Users.Messages.List("me").PageToken(token).IncludeSpamTrash(false).Do()
+		messageList, err := srv.Users.Messages.List("me").MaxResults(300).PageToken(token).IncludeSpamTrash(false).Do()
 		checkErr("Unable to retrieve emails", err)
 		thread := make([]*gmail.Message, len(messageList.Messages))
 		for i, m := range messageList.Messages {
@@ -140,7 +140,7 @@ func listAllMessages(srv *gmail.Service) []*gmail.Message {
 		}
 		messageContainer = append(messageContainer, thread...)
 		i++
-		if messageList.NextPageToken == "" || i > 2 {
+		if messageList.NextPageToken == "" {
 			break
 		} else {
 			token = messageList.NextPageToken
@@ -163,7 +163,7 @@ func getAllMessageData(srv *gmail.Service, messageList []*gmail.Message) []email
 			if header.Name == "From" {
 				// Filter out Hangouts messages
 				if strings.Contains(header.Name, "profiles.google.com") {
-					continue
+					break
 				}
 				// Add email sender to our tally
 				_, exists := senderCount[msg.Payload.Headers[i].Value]
