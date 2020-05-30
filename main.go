@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -97,10 +96,17 @@ func main() {
 
 	// List all messages, then retrieve their data (2 steps).
 	messageList := listAllMessages(srv)
-	sortedMessageKV := getAllMessageData(srv, messageList)
+	getAllMessageData(srv, &messageList)
 
-	for _, m := range sortedMessageKV {
-		fmt.Printf("%v: %v\n", m.EmailAddress, m.Count)
+	for _, m := range messageList {
+		if m.Payload != nil {
+			for _, header := range m.Payload.Headers {
+				if header.Name == "From" {
+					fmt.Printf("%+v\n", header.Value)
+					break
+				}
+			}
+		}
 	}
 }
 
@@ -151,36 +157,42 @@ func listAllMessages(srv *gmail.Service) []*gmail.Message {
 	return messageContainer
 }
 
-func getAllMessageData(srv *gmail.Service, messageList []*gmail.Message) []emailCount {
-	senderCount := make(map[string]int, len(messageList))
+func getAllMessageData(srv *gmail.Service, messageList *[]*gmail.Message) {
+	// allMessages := make(map[string]int, len(*messageList))
 	spin.Prefix = "Retrieving all message data... "
 	spin.FinalMSG = spin.Prefix + "done.\n"
 	spin.Start()
 
-	for _, msg := range messageList {
-		msg, err := srv.Users.Messages.Get("me", msg.Id).Do()
-		for i, header := range msg.Payload.Headers {
-			if header.Name == "From" {
-				// Filter out Hangouts messages
-				if strings.Contains(header.Name, "profiles.google.com") {
-					break
-				}
-				// Add email sender to our tally
-				_, exists := senderCount[msg.Payload.Headers[i].Value]
-				if exists {
-					senderCount[msg.Payload.Headers[i].Value]++
-				} else {
-					senderCount[msg.Payload.Headers[i].Value] = 1
-				}
-				// Stop iterating over headers
-				break
-			}
+	for _, msg := range *messageList {
+		fullMsg, err := srv.Users.Messages.Get("me", msg.Id).Do()
+		if fullMsg.Payload.Headers == nil {
+			continue
+		} else {
+			*msg = *fullMsg
 		}
 		checkErr("Trouble recieving message", err)
-
 	}
 	spin.Stop()
 	fmt.Println()
-
-	return sortSliceByIntVal(senderCount)
 }
+
+// for i, header := range msg.Payload.Headers {
+// 	if header.Name == "From" {
+// 		// Filter out Hangouts messages
+// 		if strings.Contains(msg.Payload.Headers[i].Value, "profiles.google.com") {
+// 			break
+// 		}
+
+// 		// Add email sender to our tally
+// 		_, exists := senderCount[msg.Payload.Headers[i].Value]
+// 		if exists {
+// 			senderCount[msg.Payload.Headers[i].Value]++
+// 		} else {
+// 			senderCount[msg.Payload.Headers[i].Value] = 1
+// 		}
+// 		// Stop iterating over headers
+// 		break
+// 	}
+// }
+
+// func get(string key)
