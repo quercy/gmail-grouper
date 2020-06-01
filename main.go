@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"time"
 
-	"github.com/briandowns/spinner"
+	"github.com/schollz/progressbar"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -21,8 +20,6 @@ type emailCount struct {
 	EmailAddress string
 	Count        int
 }
-
-var spin *spinner.Spinner
 
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
@@ -91,9 +88,6 @@ func main() {
 	srv, err := gmail.New(client)
 	checkErr("Unable to retrieve Gmail client", err)
 
-	// Initialize the spinner.
-	spin = spinner.New(spinner.CharSets[39], 100*time.Millisecond)
-
 	// List all messages, then retrieve their data (2 steps).
 	messageList := listAllMessages(srv)
 	getAllMessageData(srv, &messageList)
@@ -131,13 +125,12 @@ func sortSliceByIntVal(m map[string]int) []emailCount {
 }
 
 func listAllMessages(srv *gmail.Service) []*gmail.Message {
-	spin.Prefix = "Listing messages... "
-	spin.FinalMSG = spin.Prefix + "done."
 	i := 0
 	messageContainer := make([]*gmail.Message, 0)
+	bar := progressbar.Default(-1, "Listing messages...")
 	var token string
-	spin.Start()
 	for {
+		bar.Add(300)
 		messageList, err := srv.Users.Messages.List("me").MaxResults(300).PageToken(token).IncludeSpamTrash(false).Do()
 		checkErr("Unable to retrieve emails", err)
 		thread := make([]*gmail.Message, len(messageList.Messages))
@@ -152,18 +145,16 @@ func listAllMessages(srv *gmail.Service) []*gmail.Message {
 			token = messageList.NextPageToken
 		}
 	}
-	spin.Stop()
+	bar.Finish()
 	fmt.Println()
 	return messageContainer
 }
 
 func getAllMessageData(srv *gmail.Service, messageList *[]*gmail.Message) {
-	// allMessages := make(map[string]int, len(*messageList))
-	spin.Prefix = "Retrieving all message data... "
-	spin.FinalMSG = spin.Prefix + "done.\n"
-	spin.Start()
-
+	fmt.Println("Retrieving all message data...")
+	bar := progressbar.Default(int64(len(*messageList)))
 	for _, msg := range *messageList {
+		bar.Add(1)
 		fullMsg, err := srv.Users.Messages.Get("me", msg.Id).Do()
 		if fullMsg.Payload.Headers == nil {
 			continue
@@ -172,8 +163,6 @@ func getAllMessageData(srv *gmail.Service, messageList *[]*gmail.Message) {
 		}
 		checkErr("Trouble recieving message", err)
 	}
-	spin.Stop()
-	fmt.Println()
 }
 
 // for i, header := range msg.Payload.Headers {
