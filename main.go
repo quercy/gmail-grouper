@@ -74,17 +74,18 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func readCliArgs() (int, int) {
+func readCliArgs() (int, int, string) {
 	offset := flag.Int("o", 0, "number of messages to offset")
 	limit := flag.Int("l", 0, "number of messages to retrieve")
+	creds := flag.String("c", "credentials.json", "location of credentials.json")
 	flag.Parse()
-	return *offset, *limit
+	return *offset, *limit, *creds
 }
 
 func main() {
-	offset, limit := readCliArgs()
+	offset, limit, creds := readCliArgs()
 
-	b, err := ioutil.ReadFile("credentials.json")
+	b, err := ioutil.ReadFile(creds)
 	checkErr("Unable to read client secret file", err)
 
 	// If modifying these scopes, delete your previously saved token.json.
