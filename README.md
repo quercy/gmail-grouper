@@ -35,3 +35,21 @@ Usage of gmail-grouper:
   -o int
         number of messages to offset
 ```
+
+Output:
+```
+gmail-grouper -o 200 -l 1000 -c ~/Downloads/credentials.json | sort | uniq -c | sort -n
+...
+  13 Patreon <bingo@patreon.com>
+  16 Reddit <noreply@redditmail.com>
+  17 Wayfair <editor@members.wayfair.com>
+  18 Uniqlo USA <email@usa.uniqlo.com>
+  19 Flour Bakery <info@flourbakery.com>
+  49 Friend 1 <xxx@google.com>
+  93 Friend 2 <xxx@gmail.com>
+ 105 Reid Savage <reid.savage@gmail.com>
+```
+
+## Todo
+* Smartly group similair senders together
+* Cache results of Gmail API call on disk
