@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"sort"
 
 	"github.com/schollz/progressbar"
 	"golang.org/x/net/context"
@@ -74,7 +74,15 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
+func readCliArgs() (int, int) {
+	offset := flag.Int("o", 0, "number of messages to offset")
+	limit := flag.Int("l", 0, "number of messages to retrieve")
+	flag.Parse()
+	return *offset, *limit
+}
+
 func main() {
+	offset, limit := readCliArgs()
 
 	b, err := ioutil.ReadFile("credentials.json")
 	checkErr("Unable to read client secret file", err)
@@ -89,7 +97,7 @@ func main() {
 	checkErr("Unable to retrieve Gmail client", err)
 
 	// List all messages, then retrieve their data (2 steps).
-	messageList := listAllMessages(srv)
+	messageList := listAllMessages(srv, offset, limit)
 	getAllMessageData(srv, &messageList)
 
 	for _, m := range messageList {
@@ -111,34 +119,29 @@ func checkErr(msg string, err error) {
 
 }
 
-func sortSliceByIntVal(m map[string]int) []emailCount {
-	var ss []emailCount
-	for k, v := range m {
-		ss = append(ss, emailCount{k, v})
-	}
-
-	sort.Slice(ss, func(i, j int) bool {
-		return ss[i].Count > ss[j].Count
-	})
-
-	return ss
-}
-
-func listAllMessages(srv *gmail.Service) []*gmail.Message {
+func listAllMessages(srv *gmail.Service, offset int, limit int) []*gmail.Message {
 	i := 0
+	pageLength := 500
 	messageContainer := make([]*gmail.Message, 0)
-	bar := progressbar.Default(-1, "Listing messages...")
+	bar := progressbar.Default(-1, "Retrieving list of messages...")
 	var token string
+	log.Printf("Paging size for message retrieval: %v\n", pageLength)
 	for {
-		bar.Add(300)
-		messageList, err := srv.Users.Messages.List("me").MaxResults(300).PageToken(token).IncludeSpamTrash(false).Do()
+		// Retrieve list of messages
+		messageList, err := srv.Users.Messages.List("me").MaxResults(int64(pageLength)).PageToken(token).IncludeSpamTrash(false).Do()
 		checkErr("Unable to retrieve emails", err)
+
+		// Unravel the thread into a slice
 		thread := make([]*gmail.Message, len(messageList.Messages))
 		for i, m := range messageList.Messages {
 			thread[i] = m
 		}
+
+		// Add them to the external container
 		messageContainer = append(messageContainer, thread...)
+
 		i++
+		bar.Add(1)
 		if messageList.NextPageToken == "" {
 			break
 		} else {
@@ -147,21 +150,28 @@ func listAllMessages(srv *gmail.Service) []*gmail.Message {
 	}
 	bar.Finish()
 	fmt.Println()
-	return messageContainer
+
+	// If the limit is defined, just do the offset
+	if limit == 0 {
+		return messageContainer[offset:]
+	}
+	return messageContainer[offset : offset+limit]
 }
 
 func getAllMessageData(srv *gmail.Service, messageList *[]*gmail.Message) {
+	// Gmail ListMessage API doesn't return any info other than ID - this pulls all other info
 	fmt.Println("Retrieving all message data...")
 	bar := progressbar.Default(int64(len(*messageList)))
 	for _, msg := range *messageList {
-		bar.Add(1)
 		fullMsg, err := srv.Users.Messages.Get("me", msg.Id).Do()
+		checkErr("Trouble recieving message", err)
+		bar.Add(1)
+		// Filter out any message without headers
 		if fullMsg.Payload.Headers == nil {
 			continue
 		} else {
 			*msg = *fullMsg
 		}
-		checkErr("Trouble recieving message", err)
 	}
 }
 
@@ -184,4 +194,15 @@ func getAllMessageData(srv *gmail.Service, messageList *[]*gmail.Message) {
 // 	}
 // }
 
-// func get(string key)
+// func sortSliceByIntVal(m map[string]int) []emailCount {
+// 	var ss []emailCount
+// 	for k, v := range m {
+// 		ss = append(ss, emailCount{k, v})
+// 	}
+
+// 	sort.Slice(ss, func(i, j int) bool {
+// 		return ss[i].Count > ss[j].Count
+// 	})
+
+// 	return ss
+// }
