@@ -6,11 +6,10 @@ Written as a small tool meant to be passed into sort, uniq, etc.
 ## Installing
 I don't intend to wrap this up nicely and abstract away the Gmail API, so you'll need to set it up for yourself and download the packages.
 
-### Download the repo and packages
+### Download the tool
 
 ```
-go get	"github.com/quercy/gmail-grouper"
-go get	"github.com/schollz/progressbar"
+go get -u github.com/quercy/gmail-grouper
 ```
 
 ### Enable the Gmail API 
