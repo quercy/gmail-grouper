@@ -9,7 +9,7 @@ I don't intend to wrap this up nicely and abstract away the Gmail API, so you'll
 ### Download the tool
 
 ```
-go get -u github.com/quercy/gmail-grouper
+go get github.com/quercy/gmail-grouper
 ```
 
 ### Enable the Gmail API 
